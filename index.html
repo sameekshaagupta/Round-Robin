@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en-US">
+
+<head>
+    <title>Round Robin CPU Scheduling</title>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="index.css" />
+</head>
+
+<body>
+
+    <header class="page-header">
+        <h1>Round Robin CPU Scheduling</h1>
+    </header>
+
+    <div class="container-1">
+        <form class="input-form">
+            <div class="form-group">
+                <label>Process ID:</label>
+                <input type="number" id="PID" name="PID" value="" placeholder="Enter process ID">
+            </div>
+            <div class="form-group">
+                <label>Burst Time:</label>
+                <input type="number" id="burstTime" value="" placeholder="Enter its burst time">
+            </div>
+            <div class="form-group">
+                <label>Arrival Time:</label>
+                <input type="number" id="arrivalTime" value="" placeholder="Enter its arrival time">
+            </div>
+            <div class="form-group">
+                <label>Time Quantum:</label>
+                <input type="number" id="timeQuantum" value="" placeholder="Enter time quantum">
+            </div>
+            <div class="sub-button">
+                <div class="form-group">
+                    <button class="button" type="button" onclick="createTable()">Enter values</button>
+                </div>
+
+                <div class="form-group">
+                    <button class="button" type="button" onclick="printGanttChart()">Show Gantt Chart</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <div class="container">
+        <table id="inputTable">
+            <tr>
+                <th>PID</th>
+                <th>Burst Time</th>
+                <th>Arrival Time</th>
+            </tr>
+        </table>
+    </div>
+
+    <section class="container-3">
+        <script src="https://www.amcharts.com/lib/3/amcharts.js"></script>
+        <script src="https://www.amcharts.com/lib/3/serial.js"></script>
+        <script src="https://www.amcharts.com/lib/3/gantt.js"></script>
+        <script src="https://www.amcharts.com/lib/3/themes/dark.js"></script>
+        <script src="https://www.amcharts.com/lib/3/plugins/export/export.min.js"></script>
+        <link rel="stylesheet" href="https://www.amcharts.com/lib/3/plugins/export/export.css" type="text/css"
+            media="all" />
+        <div id="chartdiv"></div>
+
+        <script type="text/javascript">
+            function createTable() {
+                var processID = document.getElementById("PID").value;
+                var burstTime = document.getElementById("burstTime").value;
+                var arrivalTime = document.getElementById("arrivalTime").value;
+
+                var table = document.getElementById("inputTable");
+                var firstRow = table.insertRow(-1);
+                var cell1 = firstRow.insertCell(0);
+                var cell2 = firstRow.insertCell(1);
+                var cell3 = firstRow.insertCell(2);
+
+                cell1.innerHTML = processID;
+                cell2.innerHTML = burstTime;
+                cell3.innerHTML = arrivalTime;
+
+                var x = document.getElementById("inputTable").rows.length;
+            }
+
+
+            function GetCellValues() {
+                var pid = [];
+                var at = [];
+                var bt = [];
+
+                var table = document.getElementById('inputTable');
+                for (var r = 1, n = table.rows.length; r < n; r++) {
+                    for (var c = 0, m = table.rows[r].cells.length; c < m; c++) {
+                    }
+                    pid.push(parseInt(table.rows[r].cells[0].innerHTML));
+                    bt.push(parseInt(table.rows[r].cells[1].innerHTML));
+                    at.push(parseInt(table.rows[r].cells[2].innerHTML));
+                }
+
+                return { pid: pid, at: at, bt: bt };
+            }
+
+
+            function preemptiveSelection(pid, at, bt) {
+                var quantum = parseInt(document.getElementById("timeQuantum").value);
+                var n = pid.length;
+                var clock = 0;
+                var items = [];
+                var remainingBurst = bt.slice(); // Copy of burst times
+                var ct = new Array(n).fill(0); // Completion time
+
+                while (remainingBurst.some(b => b > 0)) {
+                    for (var i = 0; i < n; i++) {
+                        if (remainingBurst[i] > 0) {
+                            var executeTime = Math.min(quantum, remainingBurst[i]);
+                            items.push([pid[i], executeTime]);
+                            remainingBurst[i] -= executeTime;
+                            clock += executeTime;
+                            if (remainingBurst[i] == 0) {
+                                ct[i] = clock;
+                            }
+                        }
+                    }
+                }
+
+                return { items: items, ct: ct };
+            }
+
+
+            function generateGanttChartData(data) {
+                var n = data.items.length;
+                var finalData = [];
+                var clock = 0;
+
+                for (var i = 0; i < n; i++) {
+                    var temp = {
+                        "category": "Process " + (parseInt(data.items[i][0])).toString(),
+                        "segments": [{
+                            "start": clock,
+                            "duration": data.items[i][1],
+                            "color": "#727d6f",
+                            "task": "Process " + (parseInt(data.items[i][0])).toString()
+                        }]
+                    };
+
+                    clock += data.items[i][1];
+                    finalData.push(temp);
+                }
+
+                return finalData;
+            }
+
+
+            function printGanttChart() {
+                var data = preemptiveSelection(GetCellValues().pid, GetCellValues().at, GetCellValues().bt);
+                var chartData = generateGanttChartData(data);
+
+                var chart = AmCharts.makeChart("chartdiv", {
+                    "type": "gantt",
+                    "theme": "dark",
+                    "marginRight": 70,
+                    "period": "hh:mm:ss",
+                    "dataDateFormat": "YYYY-MM-DD",
+                    "balloonDateFormat": "JJ:NN",
+                    "columnWidth": 0.5,
+                    "valueAxis": {
+                        "type": "timecode"
+                    },
+                    "brightnessStep": 10,
+                    "graph": {
+                        "fillAlphas": 1,
+                        "balloonText": "<b>[[task]]</b>: [[open]] [[value]]"
+                    },
+                    "rotate": true,
+                    "categoryField": "category",
+                    "segmentsField": "segments",
+                    "colorField": "color",
+                    "startDate": "00:00:00:00",
+                    "startField": "start",
+                    "endField": "end",
+                    "durationField": "duration",
+                    "dataProvider": chartData,
+                    "valueScrollbar": {
+                        "autoGridCount": true
+                    },
+                    "chartCursor": {
+                        "cursorColor": "#55bb76",
+                        "valueBalloonsEnabled": false,
+                        "cursorAlpha": 0,
+                        "valueLineAlpha": 0.5,
+                        "valueLineBalloonEnabled": true,
+                        "valueLineEnabled": true,
+                        "zoomable": false,
+                        "valueZoomable": true
+                    },
+                    "export": {
+                        "enabled": true
+                    }
+                });
+
+                // Print result table
+                printResultTable(data.items, data.ct);
+            }
+
+            function printResultTable(items, ct) {
+                var table = document.createElement('table');
+                table.innerHTML = `
+                    <tr>
+                        <th>PID</th>
+                        <th>Burst Time</th>
+                        <th>Arrival Time</th>
+                    </tr>
+                `;
+                var tableRow = '';
+                for (var i = 0; i < items.length; i++) {
+                    tableRow += `
+                        <tr>
+                            <td>${items[i][0]}</td>
+                            <td>${GetCellValues().bt[i]}</td>
+                            <td>${GetCellValues().at[i]}</td>
+                        </tr>
+                    `;
+                }
+                table.innerHTML += tableRow;
+
+                // Calculate average turnaround time and waiting time
+                var totalTurnaroundTime = 0;
+                var totalWaitingTime = 0;
+                for (var i = 0; i < ct.length; i++) {
+                    totalTurnaroundTime += ct[i] - GetCellValues().at[i];
+                    totalWaitingTime += ct[i] - GetCellValues().at[i] - GetCellValues().bt[i];
+                }
+                var avgTurnaroundTime = totalTurnaroundTime / ct.length;
+                var avgWaitingTime = totalWaitingTime / ct.length;
+
+                // Print average turnaround time and waiting time
+                var resultDiv = document.createElement('div');
+                resultDiv.innerHTML = `
+                    <h1 class="res">Result</h1>
+                    <table>
+                        <tr>
+                            <th>Average Turnaround Time</th>
+                            <td>${avgTurnaroundTime}</td>
+                        </tr>
+                        <tr>
+                            <th>Average Waiting Time</th>
+                            <td>${avgWaitingTime}</td>
+                        </tr>
+                    </table>
+                `;
+
+                document.body.appendChild(resultDiv);
+            }
+        </script>
+    </section>
+
+</body>
+
+</html>
